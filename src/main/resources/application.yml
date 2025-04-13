@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: auth
+
+cors:
+  allowed-origins: "http://localhost:4200"
