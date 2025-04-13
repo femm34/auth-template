@@ -1,12 +1,12 @@
 package com.fervanz.auth.security.context;
 
 import com.fervanz.auth.client.models.entities.Client;
+import com.fervanz.auth.security.models.mapper.RoleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
 
 @RequiredArgsConstructor
 public class UserPrincipal implements UserDetails {
@@ -45,6 +45,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        return RoleMapper.setRolesToGrantedAuthorities(client.getRoles());
     }
 }

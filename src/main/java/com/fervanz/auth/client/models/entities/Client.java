@@ -1,6 +1,8 @@
 package com.fervanz.auth.client.models.entities;
 
 import com.fervanz.auth.security.context.UserPrincipal;
+import com.fervanz.auth.security.models.entities.CustomRole;
+import com.fervanz.auth.security.models.entities.PasswordResetToken;
 import com.fervanz.auth.shared.models.entities.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -12,6 +14,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -55,6 +59,15 @@ public class Client extends BaseEntity implements Serializable {
 
     @Column(name = "account_locked")
     private boolean accountLocked = false;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(name = "client_role",
+            joinColumns = @JoinColumn(name = "client_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<CustomRole> roles;
+
+    @OneToMany(mappedBy = "client", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, orphanRemoval = true)
+    private List<PasswordResetToken> passwordResetTokens;
 
     public UserDetails toUserDetails() {
         return new UserPrincipal(this);
