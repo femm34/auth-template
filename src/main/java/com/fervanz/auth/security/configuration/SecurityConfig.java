@@ -2,6 +2,7 @@ package com.fervanz.auth.security.configuration;
 
 import com.fervanz.auth.security.constants.Routes;
 import com.fervanz.auth.security.context.UserDetailsServiceImpl;
+import com.fervanz.auth.security.filters.JWTFilter;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -22,7 +24,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsServiceImpl;
     private final CorsConfigurationSource corsConfigurationSource;
-//    private final JWTFilter jwtFilter;
+    private final JWTFilter jwtFilter;
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -35,7 +37,7 @@ public class SecurityConfig {
                 .sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .logout(logout -> logout.logoutUrl("/logout"))
                 .authenticationProvider(new AuthenticationConfig(this.userDetailsServiceImpl).authenticationProvider())
-//                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

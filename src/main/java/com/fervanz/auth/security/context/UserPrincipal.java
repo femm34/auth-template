@@ -45,6 +45,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return RoleMapper.setRolesToGrantedAuthorities(client.getRoles());
+        return RoleMapper.ToGrantedAuthorities(client.getRoles());
     }
 }
