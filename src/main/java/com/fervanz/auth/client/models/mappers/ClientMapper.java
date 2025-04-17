@@ -22,6 +22,7 @@ public class ClientMapper {
                 .motherSurname(clientRequest.getMotherSurname())
                 .password(passwordEncoder.encode(clientRequest.getPassword()))
                 .fatherSurname(clientRequest.getFatherSurname())
+                .active(true)
                 .roles(roleService.toCustomRoles(clientRequest.getRoles()))
                 .createdBy(clientRequest.getUsername())
                 .build();

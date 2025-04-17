@@ -1,24 +1,44 @@
 package com.fervanz.auth.authentication.services.impl;
 
+import com.fervanz.auth.authentication.dto.request.LoginRequest;
+import com.fervanz.auth.authentication.dto.response.LoginResponse;
 import com.fervanz.auth.authentication.services.IAuthenticationService;
 import com.fervanz.auth.client.models.dao.ClientDao;
 import com.fervanz.auth.client.models.dto.request.ClientRequest;
 import com.fervanz.auth.client.models.dto.response.ClientResponse;
 import com.fervanz.auth.client.models.entities.Client;
 import com.fervanz.auth.client.models.mappers.ClientMapper;
+import com.fervanz.auth.security.context.jwt.dto.JWTResponse;
+import com.fervanz.auth.security.context.jwt.enums.TokenType;
+import com.fervanz.auth.security.context.jwt.service.IJWTService;
 import com.fervanz.auth.shared.exceptions.GlobalException;
+import com.fervanz.auth.shared.utils.CookieUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.function.Function;
 
-@Service
+
 @Slf4j
 @RequiredArgsConstructor
+@Service
 public class AuthenticationService implements IAuthenticationService {
     private final ClientDao clientDao;
     private final ClientMapper clientMapper;
+    private final AuthenticationManager authenticationManager;
+    private final IJWTService jwtService;
+    public static final long LOCK_TIME_DURATION = 5;
+    public static final int MAX_ATTEMPTS = 5;
+    public static final long TOKEN_EXPIRE_TIME = 30L * 24 * 60 * 60 * 1000;
 
     private boolean existsBy(String parameter, Function<String, Boolean> existsFunction) {
         return existsFunction.apply(parameter);
@@ -47,14 +67,107 @@ public class AuthenticationService implements IAuthenticationService {
     }
 
     @Override
-    public ClientResponse signUp(ClientRequest clientResponse) {
-        boolean existsByUsername = existsBy(clientResponse.getUsername(), clientDao::existsByUsername);
-        boolean existsByEmail = existsBy(clientResponse.getEmail(), clientDao::existsByEmail);
+    public ClientResponse signUp(ClientRequest clientRequest) {
+        boolean existsByUsername = existsBy(clientRequest.getUsername(), clientDao::existsByUsername);
+        boolean existsByEmail = existsBy(clientRequest.getEmail(), clientDao::existsByEmail);
 
-        validatePassword(clientResponse.getPassword(), clientResponse.getConfirmPassword());
+        validatePassword(clientRequest.getPassword(), clientRequest.getConfirmPassword());
         existAny(existsByUsername, existsByEmail);
 
-        Client clientSaved = clientDao.save(clientMapper.toEntity(clientResponse));
+        Client clientSaved = clientDao.save(clientMapper.toEntity(clientRequest));
         return clientMapper.toResponse(clientSaved);
+    }
+
+
+    @Override
+    public LoginResponse signIn(LoginRequest loginRequest, HttpServletResponse response) {
+        Client client = getClientByUsername(loginRequest.getUsername());
+
+        unlockIfEligible(client);
+
+        try {
+            authenticateClient(loginRequest);
+            resetFailedAttempts(client);
+            return generateLoginResponse(client, response);
+        } catch (BadCredentialsException e) {
+            handleFailedLoginAttempt(client, loginRequest.getUsername());
+            throw new GlobalException("Invalid password. Try again.");
+        }
+    }
+
+
+    private Client getClientByUsername(String username) {
+        return clientDao.findByUsername(username)
+                .orElseThrow(() -> new GlobalException("Client not found with username: " + username));
+    }
+
+    private void unlockIfEligible(Client client) {
+        if (client.isAccountLocked()) {
+            LocalDateTime lockTime = client.getLockTime();
+            if (lockTime != null && LocalDateTime.now().isBefore(lockTime)) {
+                Duration minutesLeft = Duration.between(LocalDateTime.now(), lockTime);
+                log.error("Account is locked until {}", lockTime);
+                throw new GlobalException("Your account is locked. Try again in " +
+                        String.format("%02d:%02d", minutesLeft.toMinutes(), minutesLeft.toSeconds() % 60) + " minutes.");
+            }
+
+            client.setAccountLocked(false);
+            client.setLockTime(null);
+            client.setFailedAttempts(0);
+            clientDao.save(client);
+            log.info("Account is unlocked");
+        }
+    }
+
+    private void authenticateClient(LoginRequest loginRequest) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getUsername(),
+                        loginRequest.getPassword()
+                )
+        );
+    }
+
+    private void resetFailedAttempts(Client client) {
+        client.setFailedAttempts(0);
+        client.setAccountLocked(false);
+        client.setLockTime(null);
+        clientDao.save(client);
+        log.info("Client {} authenticated successfully", client.getUsername());
+    }
+
+    private LoginResponse generateLoginResponse(Client client, HttpServletResponse response) {
+        JWTResponse jwtToken = jwtService.generateToken(
+                client.getId(),
+                TOKEN_EXPIRE_TIME,
+                TokenType.ACCESS_TOKEN,
+                client.getUsername(),
+                client.getName(),
+                client.getRoles()
+        );
+
+        CookieUtil.createCookie(response, "access_token", jwtToken.getToken(), true, (int) TOKEN_EXPIRE_TIME);
+
+        return new LoginResponse(jwtToken.getToken(), client.getUsername());
+    }
+
+    private void handleFailedLoginAttempt(Client client, String username) {
+        int failedAttempts = client.getFailedAttempts() + 1;
+        client.setFailedAttempts(failedAttempts);
+
+        Optional.of(failedAttempts)
+                .filter(attempts -> attempts >= MAX_ATTEMPTS)
+                .ifPresent(attempts -> {
+                    client.setAccountLocked(true);
+                    if (client.getLockTime() == null) {
+                        client.setLockTime(LocalDateTime.now().plusMinutes(LOCK_TIME_DURATION));
+                    }
+                    log.warn("User {} has been locked due to {} failed attempts", username, attempts);
+                    clientDao.save(client);
+                    throw new GlobalException("Your account is locked due to too many failed attempts. Try again later.");
+                });
+
+        clientDao.save(client);
+        log.error("Invalid password for user: {}", username);
     }
 }

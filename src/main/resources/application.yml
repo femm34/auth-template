@@ -15,5 +15,5 @@ cors:
 
 
 jwt:
-  secret: "asdasdasd123ekmasdas"
+  secret: "AmazingKidsJwtSecretAmazingKidsJwtSecretAmazingKidsJwtSecret"
   issuer: "auth"
