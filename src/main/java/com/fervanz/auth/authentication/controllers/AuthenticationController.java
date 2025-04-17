@@ -6,6 +6,7 @@ import com.fervanz.auth.client.models.dto.response.ClientResponse;
 import com.fervanz.auth.shared.constants.Api;
 import com.fervanz.auth.shared.payload.GlobalResponse;
 import com.fervanz.auth.shared.utils.ResponseGenerator;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class AuthenticationController {
     private final IAuthenticationService authenticationService;
 
     @RequestMapping("/sign-up")
-    ResponseEntity<GlobalResponse> signUp(@RequestBody ClientRequest clientRequest) {
+    ResponseEntity<GlobalResponse> signUp(@RequestBody @Valid ClientRequest clientRequest) {
         ClientResponse clientSaved = authenticationService.signUp(clientRequest);
         return ResponseGenerator.generateResponse("Client was successfully saved", clientSaved, HttpStatus.CREATED, 201);
     }

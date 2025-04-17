@@ -17,7 +17,6 @@ public abstract class RoleMapper {
                 .collect(Collectors.toUnmodifiableList());
     }
 
-
     public static List<String> toString(Set<CustomRole> roles) {
         return roles == null
                 ? Collections.emptyList()
