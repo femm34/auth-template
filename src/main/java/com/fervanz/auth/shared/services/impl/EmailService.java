@@ -1,7 +1,6 @@
 package com.fervanz.auth.shared.services.impl;
 
 import com.fervanz.auth.client.models.entities.Client;
-import com.fervanz.auth.security.context.jwt.service.IJWTService;
 import com.fervanz.auth.shared.services.IEmailService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;

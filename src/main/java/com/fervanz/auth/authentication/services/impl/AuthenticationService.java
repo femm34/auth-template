@@ -1,5 +1,6 @@
 package com.fervanz.auth.authentication.services.impl;
 
+import com.fervanz.auth.authentication.dto.request.ChangePasswordRequest;
 import com.fervanz.auth.authentication.dto.request.LoginRequest;
 import com.fervanz.auth.authentication.dto.request.RequestResetPasswordRequest;
 import com.fervanz.auth.authentication.dto.response.LoginResponse;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -40,6 +42,7 @@ public class AuthenticationService implements IAuthenticationService {
     private final ClientMapper clientMapper;
     private final AuthenticationManager authenticationManager;
     private final IJWTService jwtService;
+    private final PasswordEncoder passwordEncoder;
     private final IEmailService emailService;
     private final PasswordResetTokenDao passwordResetTokenDao;
     public static final long LOCK_TIME_DURATION = 5;
@@ -102,6 +105,47 @@ public class AuthenticationService implements IAuthenticationService {
         }
     }
 
+    @Override
+    public void changePassword(String token, ChangePasswordRequest changePasswordRequest) {
+        if (token.isEmpty()) {
+            throw new GlobalException("Token is empty");
+        }
+
+        if (!changePasswordRequest.getPassword().equals(changePasswordRequest.getConfirmPassword())) {
+            throw new GlobalException("Password and Confirm Password do not match");
+        }
+
+        PasswordResetToken passwordResetTokenFound = passwordResetTokenDao.findByToken(token)
+                .orElseThrow(() -> new GlobalException("Token not found"));
+
+        Client clientFound = passwordResetTokenFound.getClient();
+
+        validatePasswordResetToken(passwordResetTokenFound, changePasswordRequest.getPassword(), clientFound);
+    }
+
+    private boolean isTokenExpired(PasswordResetToken passwordResetToken) {
+        return passwordResetToken.getExpireDate().isBefore(LocalDateTime.now());
+    }
+
+    private void validatePasswordResetToken(PasswordResetToken passwordResetTokenFound, String password, Client clientFound) {
+        if (passwordResetTokenFound.getStatus().equals(TokenStatus.EXPIRED)) {
+            throw new GlobalException("Token expired");
+        } else if (passwordResetTokenFound.getStatus().equals(TokenStatus.USED)) {
+            throw new GlobalException("Token has been used");
+        } else if (isTokenExpired(passwordResetTokenFound) && passwordResetTokenFound.getStatus().equals(TokenStatus.ACTIVE)) {
+            passwordResetTokenFound.setStatus(TokenStatus.EXPIRED);
+            passwordResetTokenDao.save(passwordResetTokenFound);
+            throw new GlobalException("Token expired");
+        }
+        if (!isTokenExpired(passwordResetTokenFound) && passwordResetTokenFound.getStatus().equals(TokenStatus.ACTIVE)) {
+            String passwordEncoded = passwordEncoder.encode(password);
+            clientFound.setPassword(passwordEncoded);
+            this.clientDao.save(clientFound);
+
+            passwordResetTokenFound.setStatus(TokenStatus.USED);
+            passwordResetTokenDao.save(passwordResetTokenFound);
+        }
+    }
 
     private Client getClientByUsername(String username) {
         return clientDao.findByUsername(username)

@@ -8,5 +8,6 @@ public abstract class Routes {
             Api.V1_ROUTE + Api.AUTH_ROUTE + "/sign-up",
             Api.V1_ROUTE + Api.AUTH_ROUTE + "/sign-in",
             Api.V1_ROUTE + Api.AUTH_ROUTE + "/request-password-reset",
+            Api.V1_ROUTE + Api.AUTH_ROUTE + "/reset-password",
     };
 }

@@ -1,5 +1,6 @@
 package com.fervanz.auth.authentication.controllers;
 
+import com.fervanz.auth.authentication.dto.request.ChangePasswordRequest;
 import com.fervanz.auth.authentication.dto.request.LoginRequest;
 import com.fervanz.auth.authentication.dto.request.RequestResetPasswordRequest;
 import com.fervanz.auth.authentication.dto.response.LoginResponse;
@@ -14,10 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 
 @RestController
@@ -42,6 +40,12 @@ public class AuthenticationController {
     @PostMapping("/request-password-reset")
     ResponseEntity<GlobalResponse> requestPasswordReset(@RequestBody @Valid RequestResetPasswordRequest clientRequest) {
         authenticationService.requestPasswordReset(clientRequest);
+        return ResponseGenerator.generateResponse("Password reset request was successfully sent", null, HttpStatus.OK, 200);
+    }
+
+    @PostMapping("/reset-password")
+    ResponseEntity<GlobalResponse> resetPassword(@RequestParam("token") String token, @RequestBody @Valid ChangePasswordRequest clientRequest) {
+        authenticationService.changePassword(token, clientRequest);
         return ResponseGenerator.generateResponse("Password reset request was successfully sent", null, HttpStatus.OK, 200);
     }
 
