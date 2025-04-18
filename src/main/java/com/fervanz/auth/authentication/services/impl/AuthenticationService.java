@@ -1,6 +1,7 @@
 package com.fervanz.auth.authentication.services.impl;
 
 import com.fervanz.auth.authentication.dto.request.LoginRequest;
+import com.fervanz.auth.authentication.dto.request.RequestResetPasswordRequest;
 import com.fervanz.auth.authentication.dto.response.LoginResponse;
 import com.fervanz.auth.authentication.services.IAuthenticationService;
 import com.fervanz.auth.client.models.dao.ClientDao;
@@ -9,9 +10,13 @@ import com.fervanz.auth.client.models.dto.response.ClientResponse;
 import com.fervanz.auth.client.models.entities.Client;
 import com.fervanz.auth.client.models.mappers.ClientMapper;
 import com.fervanz.auth.security.context.jwt.dto.JWTResponse;
+import com.fervanz.auth.security.context.jwt.enums.TokenStatus;
 import com.fervanz.auth.security.context.jwt.enums.TokenType;
 import com.fervanz.auth.security.context.jwt.service.IJWTService;
+import com.fervanz.auth.security.models.dao.PasswordResetTokenDao;
+import com.fervanz.auth.security.models.entities.PasswordResetToken;
 import com.fervanz.auth.shared.exceptions.GlobalException;
+import com.fervanz.auth.shared.services.IEmailService;
 import com.fervanz.auth.shared.utils.CookieUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -36,9 +40,12 @@ public class AuthenticationService implements IAuthenticationService {
     private final ClientMapper clientMapper;
     private final AuthenticationManager authenticationManager;
     private final IJWTService jwtService;
+    private final IEmailService emailService;
+    private final PasswordResetTokenDao passwordResetTokenDao;
     public static final long LOCK_TIME_DURATION = 5;
     public static final int MAX_ATTEMPTS = 5;
     public static final long TOKEN_EXPIRE_TIME = 30L * 24 * 60 * 60 * 1000;
+    public static final long RESET_PASSWORD_TOKEN_TIME = 600000;
 
     private boolean existsBy(String parameter, Function<String, Boolean> existsFunction) {
         return existsFunction.apply(parameter);
@@ -164,10 +171,23 @@ public class AuthenticationService implements IAuthenticationService {
                     }
                     log.warn("User {} has been locked due to {} failed attempts", username, attempts);
                     clientDao.save(client);
-                    throw new GlobalException("Your account is locked due to too many failed attempts. Try again later.");
+                    throw new GlobalException("Your account is locked due to too many failed attempts. Try again in " +
+                            String.format("%02d:%02d", LOCK_TIME_DURATION, 0) + " minutes.");
                 });
 
         clientDao.save(client);
         log.error("Invalid password for user: {}", username);
+    }
+
+    @Override
+    public void requestPasswordReset(RequestResetPasswordRequest requestResetPasswordRequest) {
+        Client clientFound = clientDao.findByUsername(requestResetPasswordRequest.getUsername())
+                .orElseThrow(() -> new GlobalException("Client not found with username: " + requestResetPasswordRequest.getUsername()));
+
+        JWTResponse token = jwtService.generateToken(clientFound.getId(), RESET_PASSWORD_TOKEN_TIME, TokenType.RESET_PASSWORD, clientFound.getUsername(), clientFound.getName(), clientFound.getRoles());
+        PasswordResetToken passwordResetToken = new PasswordResetToken(null, token.getToken(), TokenStatus.ACTIVE, LocalDateTime.now().plusMinutes(10), clientFound);
+
+        passwordResetTokenDao.save(passwordResetToken);
+        emailService.sendRequestChangePassword(clientFound, "Password Reset Request", token.getToken());
     }
 }
