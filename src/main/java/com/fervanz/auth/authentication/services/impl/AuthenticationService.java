@@ -15,7 +15,9 @@ import com.fervanz.auth.security.context.jwt.enums.TokenStatus;
 import com.fervanz.auth.security.context.jwt.enums.TokenType;
 import com.fervanz.auth.security.context.jwt.service.IJWTService;
 import com.fervanz.auth.security.models.dao.PasswordResetTokenDao;
+import com.fervanz.auth.security.models.dao.RefreshTokenDao;
 import com.fervanz.auth.security.models.entities.PasswordResetToken;
+import com.fervanz.auth.security.models.entities.RefreshToken;
 import com.fervanz.auth.shared.exceptions.GlobalException;
 import com.fervanz.auth.shared.services.IEmailService;
 import com.fervanz.auth.shared.utils.CookieUtil;
@@ -40,6 +42,7 @@ import java.util.function.Function;
 public class AuthenticationService implements IAuthenticationService {
     private final ClientDao clientDao;
     private final ClientMapper clientMapper;
+    private final RefreshTokenDao refreshTokenDao;
     private final AuthenticationManager authenticationManager;
     private final IJWTService jwtService;
     private final PasswordEncoder passwordEncoder;
@@ -47,7 +50,8 @@ public class AuthenticationService implements IAuthenticationService {
     private final PasswordResetTokenDao passwordResetTokenDao;
     public static final long LOCK_TIME_DURATION = 5;
     public static final int MAX_ATTEMPTS = 5;
-    public static final long TOKEN_EXPIRE_TIME = 30L * 24 * 60 * 60 * 1000;
+    public static final long TOKEN_EXPIRE_TIME = 10L * 60 * 1000;
+    public static final long REFRESH_TOKEN_EXPIRE_TIME = 30L * 24 * 60 * 60 * 1000;
     public static final long RESET_PASSWORD_TOKEN_TIME = 600000;
 
     private boolean existsBy(String parameter, Function<String, Boolean> existsFunction) {
@@ -197,10 +201,48 @@ public class AuthenticationService implements IAuthenticationService {
                 client.getRoles()
         );
 
-        CookieUtil.createCookie(response, "access_token", jwtToken.getToken(), true, (int) TOKEN_EXPIRE_TIME);
+        String refreshToken = jwtService.generateRefreshToken();
 
-        return new LoginResponse(jwtToken.getToken(), client.getUsername());
+        refreshTokenLogic(client, refreshToken);
+
+
+        CookieUtil.createCookie(response, "access_token", jwtToken.getToken(), true, (int) TOKEN_EXPIRE_TIME);
+        CookieUtil.createCookie(response, "refresh_token", refreshToken, true, (int) REFRESH_TOKEN_EXPIRE_TIME);
+
+        return new LoginResponse(jwtToken.getToken(), refreshToken, client.getUsername());
     }
+
+    private void refreshTokenLogic(Client client, String refreshToken) {
+        RefreshToken refreshTokenFound = refreshTokenDao.findByClient(client);
+
+        Long id = Optional.ofNullable(refreshTokenFound)
+                .map(RefreshToken::getId)
+                .orElse(null);
+
+        Integer trace = Optional.ofNullable(refreshTokenFound)
+                .map(RefreshToken::getTrace)
+                .map(t -> t + 1)
+                .orElse(0);
+
+        String updatedBy = Optional.ofNullable(refreshTokenFound)
+                .map(RefreshToken::getCreatedBy)
+                .orElse(null);
+
+        RefreshToken newRefreshToken = RefreshToken.builder()
+                .id(id)
+                .client(client)
+                .active(true)
+                .trace(trace)
+                .token(refreshToken)
+                .createdBy(client.getUsername())
+                .status(TokenStatus.ACTIVE)
+                .updatedBy(updatedBy)
+                .expireDate(LocalDateTime.now().plusDays(30))
+                .build();
+
+        refreshTokenDao.save(newRefreshToken);
+    }
+
 
     private void handleFailedLoginAttempt(Client client, String username) {
         int failedAttempts = client.getFailedAttempts() + 1;

@@ -42,7 +42,10 @@ public class BaseEntity {
 
     @PreUpdate
     public void preUpdate() {
-        this.trace++;
+        if (this.updatedBy != null && !this.updatedBy.equals(this.createdBy)) {
+            this.trace++;
+        }
         this.updatedAt = LocalDateTime.now();
     }
+
 }

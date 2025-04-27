@@ -25,4 +25,6 @@ public interface IJWTService {
     String getUsernameFromToken(String token);
 
     String extractTokenFromRequest(HttpServletRequest request);
+
+    String generateRefreshToken();
 }

@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 
@@ -27,6 +29,16 @@ public class JWTService implements IJWTService {
 
     @Value("${jwt.issuer}")
     private String jwtIssuer;
+
+    private static final SecureRandom secureRandom = new SecureRandom();
+    private static final Base64.Encoder base64Encoder = Base64.getUrlEncoder().withoutPadding();
+
+    @Override
+    public String generateRefreshToken() {
+        byte[] randomBytes = new byte[64];
+        secureRandom.nextBytes(randomBytes);
+        return base64Encoder.encodeToString(randomBytes);
+    }
 
     @Override
     public JWTResponse generateToken(Long userId, long expiryTime, TokenType type, String username, String name,
