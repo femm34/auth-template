@@ -81,6 +81,30 @@ public class AuthenticationService implements IAuthenticationService {
     }
 
     @Override
+    public LoginResponse refreshToken(String refreshToken, HttpServletResponse response) {
+        log.info("Refreshing token");
+
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            throw new GlobalException("Refresh token is empty");
+        }
+
+        RefreshToken refreshTokenFound = refreshTokenDao.findByToken(refreshToken)
+                .orElseThrow(() -> new GlobalException("Refresh token not found"));
+        if (refreshTokenFound.getStatus().equals(TokenStatus.EXPIRED)) {
+            throw new GlobalException("Refresh token expired, please login again.");
+        } else if (refreshTokenFound.getStatus().equals(TokenStatus.USED)) {
+            throw new GlobalException("Refresh token has been used");
+        } else if (refreshTokenFound.getExpireDate().isBefore(LocalDateTime.now())) {
+            refreshTokenFound.setStatus(TokenStatus.EXPIRED);
+            refreshTokenDao.save(refreshTokenFound);
+            throw new GlobalException("Refresh token expired, please login again.");
+        }
+
+        log.info("Refresh token found: {}", refreshTokenFound.getToken());
+        return generateLoginResponse(refreshTokenFound.getClient(), response);
+    }
+
+    @Override
     public ClientResponse signUp(ClientRequest clientRequest) {
         boolean existsByUsername = existsBy(clientRequest.getUsername(), clientDao::existsByUsername);
         boolean existsByEmail = existsBy(clientRequest.getEmail(), clientDao::existsByEmail);

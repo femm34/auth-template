@@ -49,4 +49,10 @@ public class AuthenticationController {
         return ResponseGenerator.generateResponse("Password reset request was successfully sent", null, HttpStatus.OK, 200);
     }
 
+    @PostMapping("/refresh-token")
+    ResponseEntity<GlobalResponse> refreshToken(@RequestParam("refreshToken") String refreshToken, HttpServletResponse httpServletResponse) {
+        LoginResponse response = authenticationService.refreshToken(refreshToken, httpServletResponse);
+        return ResponseGenerator.generateResponse("Refresh token was successfully generated", response, HttpStatus.OK, 200);
+    }
+
 }

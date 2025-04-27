@@ -13,4 +13,5 @@ public interface IAuthenticationService {
     LoginResponse signIn(LoginRequest loginRequest, HttpServletResponse response);
     void requestPasswordReset(RequestResetPasswordRequest requestResetPasswordRequest);
     void changePassword(String token, ChangePasswordRequest changePasswordRequest);
+    LoginResponse refreshToken(String refreshToken, HttpServletResponse response);
 }
