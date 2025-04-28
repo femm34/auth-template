@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 
@@ -24,6 +25,12 @@ import org.springframework.web.servlet.HandlerMapping;
 public class AuthenticationController {
     private final IAuthenticationService authenticationService;
     private final HandlerMapping resourceHandlerMapping;
+
+//    @PreAuthorize("hasRole('CLIENT')")
+    @GetMapping("/check")
+    ResponseEntity<GlobalResponse> healthCheck() {
+        return ResponseGenerator.generateResponse("Authentication service is up, running and protected", null, HttpStatus.OK, 200);
+    }
 
     @PostMapping("/sign-up")
     ResponseEntity<GlobalResponse> signUp(@RequestBody @Valid ClientRequest clientRequest) {

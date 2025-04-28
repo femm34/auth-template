@@ -61,6 +61,7 @@ public class JWTService implements IJWTService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+
     @Override
     public boolean isTokenAccess(String token) {
         try {
@@ -85,7 +86,7 @@ public class JWTService implements IJWTService {
     public Claims getClaims(String token) {
         try {
             return Jwts.parserBuilder()
-                    .setSigningKey(jwtSecret)
+                    .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();

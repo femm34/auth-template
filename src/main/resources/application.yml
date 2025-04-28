@@ -36,7 +36,7 @@ cors:
 
 
 jwt:
-  secret: "AmazingKidsJwtSecretAmazingKidsJwtSecretAmazingKidsJwtSecret"
+  secret: "QW1hemluZ0tpZHNKd3RTZWNyZXRBbWF6aW5nS2lkc0p3dFNlY3JldEFtYXppbmdLaWRzSnd0U2VjcmV0"
   issuer: "auth"
 
 
